@@ -1041,6 +1041,7 @@ class BasicChatRoom extends BasicRoom {
 
 		/** @type {any} */
 		// TODO: strongly type polls
+		this.survey = null;
 		this.poll = null;
 
 		// room settings
@@ -1265,6 +1266,10 @@ class BasicChatRoom extends BasicRoom {
 		let userList = this.userList ? this.userList : this.getUserList();
 		this.sendUser(connection, '|init|chat\n|title|' + this.title + '\n' + userList + '\n' + this.log.getScrollback() + this.getIntroMessage(user));
 		if (this.poll) this.poll.onConnect(user, connection);
+		if (this.survey) {
+			for (let u = 0; u < this.survey.surveyArray.length; u++) {
+				if (this.survey.surveyArray[u]) this.survey.onConnect(user, connection, u);
+			}
 		if (this.game && this.game.onConnect) this.game.onConnect(user, connection);
 	}
 	/**
@@ -1311,7 +1316,16 @@ class BasicChatRoom extends BasicRoom {
 		} else {
 			this.reportJoin('n', user.getIdentity(this.id) + '|' + oldid);
 		}
-		if (this.poll && user.userid in this.poll.voters) this.poll.updateFor(user);
+		if (this.poll) {
+		    for (let u in this.poll.pollArray) {
+				if (user.userid in this.poll.pollArray[u].voters) this.poll.updateFor(user);
+			}
+		}
+		if (this.survey) {
+			for (let u in this.survey.surveyArray) {
+				if (this.survey.surveyArray[u] && user.userid in this.survey.surveyArray[u].repliers) this.survey.updateTo(user, u, false);
+			}/*
+		if (this.poll && user.userid in this.poll.voters) this.poll.updateFor(user);*/
 		return true;
 	}
 	/**
