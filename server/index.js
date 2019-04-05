@@ -84,6 +84,33 @@ if (Config.watchconfig) {
 	});
 }
 
+/*****************
+* Custom Globals *
+******************/
+
+global.Server = {};
+global.Server = require('../server/Server.js').Server;
+global.serverName = Config.serverName;
+
+// Store Data Locally
+const nef = require('nef');
+const nefFs = require('nef-fs');
+global.Db = nef(nefFs('./config/Db'));
+
+// Store Data In Cloud Storage ( MongoDB ).
+// Disable Local Storage While Using Cloud Storage 
+//global.Db = require('nef')(require('nef-mongo')('MONGODB-URL'));
+
+// Sqlite3 For Storing Regions Data
+global.sqlite3 = require('sqlite3');
+
+// Required for OnTime to work properly
+global.Ontime = {};
+
+/*********************
+* Custom Globals End *
+**********************/
+
 /*********************************************************
  * Set up most of our globals
  *********************************************************/
