@@ -15,6 +15,11 @@ exports.serverName = 'Impulse';
 */
 exports.serverIp = 'serverip';
 
+/*
+* Tournaments Rewards: Amount Of Players Required To Earn Bucks
+**/
+exports.tourRequiredToEarn = '4';
+
 /**
 * Poof used to enable/disable poof plugin
 **/
