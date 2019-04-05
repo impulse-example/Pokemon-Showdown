@@ -106,7 +106,7 @@ try {
 
 //Usage notification
 try {
-	fs.accessSync('custom-plugins/shop-private.js', fs.F_OK);
+	fs.accessSync('server/chat-plugins/shop-private.js', fs.F_OK);
 	if (allowThisShop) console.warn('Since the normal shop is up the eShop has been disabled.');
 	allowThisShop = false;
 } catch (e) {
