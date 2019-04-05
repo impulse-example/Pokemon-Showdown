@@ -614,13 +614,14 @@ class CommandContext extends MessageContext {
 						this.room.messageCount++;
 					}
 				}
+				if (this.room && this.room.game && this.room.game.onLogMessage) {
+			this.room.game.onLogMessage(message, this.user);
+		}
 				//this.room.add(`|c|${this.user.getIdentity(this.room.id)}|${message}`);
 			}
 		}
 
-		if (this.room && this.room.game && this.room.game.onLogMessage) {
-			this.room.game.onLogMessage(message, this.user);
-		}
+		
 
 		if (this.user.registered && giveExp) Server.ExpControl.addExp(this.user.userid, this.room, 1);
 		this.update();
