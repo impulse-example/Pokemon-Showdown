@@ -1,6 +1,6 @@
 'use strict';
 
-const FS = require(("../../.lib-dist/fs"));
+const FS = require(('../../.lib/fs.js'));
 let https = require('https');
 const Autolinker = require('autolinker');
 
