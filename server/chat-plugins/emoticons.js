@@ -9,7 +9,7 @@
 ***********************/
 "use strict";
 
-const FS = require("../.lib-dist/fs");
+const FS = require(("../../.lib-dist/fs"));
 
 let emoticons = {"feelsbd": "http://i.imgur.com/TZvJ1lI.png"};
 let emoteRegex = new RegExp("feelsbd", "g");
