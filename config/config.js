@@ -14,7 +14,7 @@ exports.serverName = 'Impulse';
 /**
 * The server ip - used to show avatars in profile
 */
-exports.serverIp = 'impulse007.glitch.com';
+exports.serverIp = 'impulse007.glitch.me';
 
 /*
 * Tournaments Rewards: Amount Of Players Required To Earn Bucks
