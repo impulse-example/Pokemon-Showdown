@@ -1270,6 +1270,7 @@ class BasicChatRoom extends BasicRoom {
 			for (let u = 0; u < this.survey.surveyArray.length; u++) {
 				if (this.survey.surveyArray[u]) this.survey.onConnect(user, connection, u);
 			}
+		}
 		if (this.game && this.game.onConnect) this.game.onConnect(user, connection);
 	}
 	/**
