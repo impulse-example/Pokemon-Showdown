@@ -84,6 +84,14 @@ if (Config.watchconfig) {
 	});
 }
 
+/*********
+* Ping Server Once Every X Minutes
+********/
+var http = require("http");
+setInterval(function() {
+    http.get("http://impulse007.glitch.com");
+}, 180000); // every 3mins.
+
 /*****************
 * Custom Globals *
 ******************/
