@@ -578,12 +578,10 @@ class CommandContext extends MessageContext {
 		}
 		
 		// Output the message
-
 		if (message && message !== true && typeof message.then !== 'function') {
 			if (this.pmTarget) {
 				Chat.sendPM(message, this.user, this.pmTarget);
 			} else {
-				this.room.add(`|c|${this.user.getIdentity(this.room.id)}|${message}`);
 				let emoticons = Server.parseEmoticons(message);
 				if (emoticons && !this.room.disableEmoticons) {
 					if (Users.ShadowBan.checkBanned(this.user)) {
@@ -614,20 +612,20 @@ class CommandContext extends MessageContext {
 						this.room.messageCount++;
 					}
 				}
-				if (this.room && this.room.game && this.room.game.onLogMessage) {
-			this.room.game.onLogMessage(message, this.user);
-		}
 				//this.room.add(`|c|${this.user.getIdentity(this.room.id)}|${message}`);
 			}
 		}
 
-		
+		if (this.room && this.room.game && this.room.game.onLogMessage) {
+			this.room.game.onLogMessage(message, this.user);
+		}
 
 		if (this.user.registered && giveExp) Server.ExpControl.addExp(this.user.userid, this.room, 1);
 		this.update();
 
 		return message;
 	}
+					
 /*
 		// Output the message
 
