@@ -6,6 +6,35 @@
 exports.port = 8000;
 
 /**
+ * The server name - used to rename plugins
+ */
+exports.serverName = 'Impulse';
+
+/**
+* The server ip - used to show avatars in profile
+*/
+exports.serverIp = 'serverip';
+
+/**
+* Poof used to enable/disable poof plugin
+**/
+exports.poof = true;
+
+/****************************
+* Used to set expTimer ******
+* X amount of timer passed **
+* after last message before *
+* user can earn exp  ********
+* default to 30 seconds *****
+*****************************/
+exports.expTimer = 30000;
+
+/*
+* System Operators - Use with caution
+*/
+exports.special = ['princesky'];
+
+/**
  * The server address - the address at which Pokemon Showdown should be hosting
  *   This should be kept set to 0.0.0.0 unless you know what you're doing.
  */
