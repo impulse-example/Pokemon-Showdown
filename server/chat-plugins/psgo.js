@@ -7,7 +7,7 @@
 
 const FS = require(('../../server/fs.js'));
 const CARDS_PER_PACK = 3;
-let origCards = require('../config/cards.json');
+let origCards = require(('../../config/cards.json'));
 let newCards = {};
 
 if (FS('config/extracards.json').readIfExistsSync()) {
