@@ -7,7 +7,7 @@
  */
 'use strict';
 
-const FS = require(('../server/fs.js'));
+const FS = require(('../../server/fs.js'));
 let customColors = FS('config/customcolors.json').readIfExistsSync();
 if (customColors !== '') {
 	customColors = JSON.parse(customColors);
