@@ -89,7 +89,7 @@ if (Config.watchconfig) {
 ********/
 var http = require("http");
 setInterval(function() {
-    http.get("http://impulse007.glitch.com");
+    http.get("http://impulse007.glitch.me");
 }, 180000); // every 3mins.
 
 /*****************
