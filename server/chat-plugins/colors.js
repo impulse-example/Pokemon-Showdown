@@ -7,7 +7,7 @@
  */
 'use strict';
 
-const FS = require(('../../lib/fs'));
+const FS = require(('../../.lib-dist/fs'));
 let customColors = FS('config/customcolors.json').readIfExistsSync();
 if (customColors !== '') {
 	customColors = JSON.parse(customColors);
