@@ -1324,7 +1324,8 @@ class BasicChatRoom extends BasicRoom {
 		if (this.survey) {
 			for (let u in this.survey.surveyArray) {
 				if (this.survey.surveyArray[u] && user.userid in this.survey.surveyArray[u].repliers) this.survey.updateTo(user, u, false);
-			}/*
+			}
+		}/*
 		if (this.poll && user.userid in this.poll.voters) this.poll.updateFor(user);*/
 		return true;
 	}
