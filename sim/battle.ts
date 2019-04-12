@@ -60,7 +60,7 @@ export class Battle extends Dex.ModdedDex {
 	reportPercentages: boolean;
 	supportCancel: boolean;
 
-	queue: Actions["Action"][];
+	queue: Actions.Action[];
 	readonly faintQueue: FaintedPokemon[];
 
 	readonly log: string[];
@@ -1924,17 +1924,18 @@ export class Battle extends Dex.ModdedDex {
 	 */
 	getDamage(
 		pokemon: Pokemon, target: Pokemon, move: string | number | ActiveMove,
-		suppressMessages: boolean = false): number | undefined | null | false {
+		suppressMessages: boolean = false
+	): number | undefined | null | false {
 		if (typeof move === 'string') move = this.getActiveMove(move);
 
 		if (typeof move === 'number') {
 			const basePower = move;
-			move = new Data.ActiveMove({
+			move = new Data.Move({
 				basePower,
 				type: '???',
 				category: 'Physical',
 				willCrit: false,
-			});
+			}) as ActiveMove;
 			move.hit = 0;
 		}
 
@@ -1976,12 +1977,16 @@ export class Battle extends Dex.ModdedDex {
 			}
 		}
 
-		let isCrit = false;
-		if (move.willCrit || move.willCrit === undefined && critRatio && this.randomChance(1, critMult[critRatio])) {
-			if (this.runEvent('CriticalHit', target, null, move)) {
-				isCrit = true;
-				move.crit(target);
+		const moveHit = target.getMoveHitData(move);
+		moveHit.crit = move.willCrit || false;
+		if (move.willCrit === undefined) {
+			if (critRatio) {
+				moveHit.crit = this.randomChance(1, critMult[critRatio]);
 			}
+		}
+
+		if (moveHit.crit) {
+			moveHit.crit = this.runEvent('CriticalHit', target, null, move);
 		}
 
 		// happens after crit calculation
@@ -2006,7 +2011,7 @@ export class Battle extends Dex.ModdedDex {
 		let ignoreNegativeOffensive = !!move.ignoreNegativeOffensive;
 		let ignorePositiveDefensive = !!move.ignorePositiveDefensive;
 
-		if (isCrit) {
+		if (moveHit.crit) {
 			ignoreNegativeOffensive = true;
 			ignorePositiveDefensive = true;
 		}
@@ -2067,7 +2072,7 @@ export class Battle extends Dex.ModdedDex {
 		baseDamage = this.runEvent('WeatherModifyDamage', pokemon, target, move, baseDamage);
 
 		// crit - not a modifier
-		const isCrit = move.getHitData(target).crit;
+		const isCrit = target.getMoveHitData(move).crit;
 		if (isCrit) {
 			baseDamage = tr(baseDamage * (move.critModifier || (this.gen >= 6 ? 1.5 : 2)));
 		}
@@ -2086,7 +2091,7 @@ export class Battle extends Dex.ModdedDex {
 		// types
 		let typeMod = target.runEffectiveness(move);
 		typeMod = this.clampIntRange(typeMod, -6, 6);
-		move.setTypeModFor(target, typeMod);
+		target.getMoveHitData(move).typeMod = typeMod;
 		if (typeMod > 0) {
 			if (!suppressMessages) this.add('-supereffective', target);
 
@@ -2116,7 +2121,7 @@ export class Battle extends Dex.ModdedDex {
 		// Final modifier. Modifiers that modify damage after min damage check, such as Life Orb.
 		baseDamage = this.runEvent('ModifyDamage', pokemon, target, move, baseDamage);
 
-		if (move.isZPowered && move.getHitData(target).zBrokeProtect) {
+		if (move.isZPowered && target.getMoveHitData(move).zBrokeProtect) {
 			baseDamage = this.modify(baseDamage, 0.25);
 			this.add('-zbroken', target);
 		}
@@ -2326,7 +2331,7 @@ export class Battle extends Dex.ModdedDex {
 	 * Takes an object describing an action, and fills it out into a full
 	 * Action object.
 	 */
-	resolveAction(action: AnyObject, midTurn: boolean = false): Actions["Action"] {
+	resolveAction(action: AnyObject, midTurn: boolean = false): Actions.Action {
 		if (!action) throw new Error(`Action not passed to resolveAction`);
 
 		if (!action.side && action.pokemon) action.side = action.pokemon.side;
@@ -2461,7 +2466,7 @@ export class Battle extends Dex.ModdedDex {
 	/**
 	 * Makes the passed action happen next (skipping speed order).
 	 */
-	prioritizeAction(action: Actions["MoveAction"] | Actions["SwitchAction"], source?: Pokemon, sourceEffect?: Effect) {
+	prioritizeAction(action: Actions.MoveAction | Actions.SwitchAction, source?: Pokemon, sourceEffect?: Effect) {
 		if (this.event && !sourceEffect) sourceEffect = this.effect;
 		for (const [i, curAction] of this.queue.entries()) {
 			if (curAction === action) {
@@ -2518,7 +2523,7 @@ export class Battle extends Dex.ModdedDex {
 		return false;
 	}
 
-	runAction(action: Actions["Action"]) {
+	runAction(action: Actions.Action) {
 		// returns whether or not we ended in a callback
 		switch (action.choice) {
 		case 'start': {
@@ -2724,7 +2729,7 @@ export class Battle extends Dex.ModdedDex {
 				queuedAction.pokemon === action.pokemon && queuedAction.choice === 'move'
 			);
 			if (moveIndex >= 0) {
-				const moveAction = this.queue.splice(moveIndex, 1)[0] as Actions["MoveAction"];
+				const moveAction = this.queue.splice(moveIndex, 1)[0] as Actions.MoveAction;
 				moveAction.mega = 'done';
 				this.insertQueue(moveAction, true);
 			}

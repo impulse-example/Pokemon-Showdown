@@ -234,7 +234,7 @@ let BattleScripts = {
 			move.ignoreImmunity = (move.category === 'Status');
 		}
 
-		if (move.selfdestruct === 'always') {
+		if (this.gen !== 4 && move.selfdestruct === 'always') {
 			this.faint(pokemon, pokemon, move);
 		}
 
@@ -245,6 +245,14 @@ let BattleScripts = {
 			if (damage === this.NOT_FAIL) pokemon.moveThisTurnResult = null;
 			if (damage || damage === 0 || damage === undefined) moveResult = true;
 		} else {
+			if (!targets.length) {
+				this.attrLastMove('[notarget]');
+				this.add(this.gen >= 5 ? '-fail' : '-notarget', pokemon);
+				return false;
+			}
+			if (this.gen === 4 && move.selfdestruct === 'always') {
+				this.faint(pokemon, pokemon, move);
+			}
 			moveResult = this.trySpreadMoveHit(targets, pokemon, move);
 		}
 		if (move.selfBoost && moveResult) this.moveHit(pokemon, pokemon, move, move.selfBoost, false, true);
@@ -265,11 +273,6 @@ let BattleScripts = {
 		return true;
 	},
 	trySpreadMoveHit(targets, pokemon, move) {
-		if (!targets.length) {
-			this.attrLastMove('[notarget]');
-			this.add(this.gen >= 5 ? '-fail' : '-notarget', pokemon);
-			return false;
-		}
 		if (targets.length > 1) move.spreadHit = true;
 
 		/** @type {((targets: Pokemon[], pokemon: Pokemon, move: ActiveMove) => (number | boolean | "" | undefined)[] | undefined)[]} */

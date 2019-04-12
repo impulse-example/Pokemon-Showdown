@@ -11,14 +11,9 @@ import {BattlePlayer} from '../battle-stream';
 import {PRNG, PRNGSeed} from '../prng';
 
 export class RandomPlayerAI extends BattlePlayer {
-	readonly move: number;
-	readonly mega: number;
-	readonly prng: PRNG;
-
-	trapped: Set<number>;
-	disabled: Map<number, Set<string>>;
-	lastRequest?: AnyObject;
-	retry: boolean;
+	protected readonly move: number;
+	protected readonly mega: number;
+	protected readonly prng: PRNG;
 
 	constructor(
 		playerStream: ObjectReadWriteStream<string>,
@@ -29,53 +24,16 @@ export class RandomPlayerAI extends BattlePlayer {
 		this.move = options.move || 1.0;
 		this.mega = options.mega || 0;
 		this.prng = options.seed && !Array.isArray(options.seed) ? options.seed : new PRNG(options.seed);
-
-		this.disabled = new Map();
-		this.trapped = new Set();
-		this.retry = false;
 	}
 
 	receiveError(error: Error) {
-		if (error.message.startsWith(`[Invalid choice]`) && this.retry) {
-			this.retry = false;
-			// If we get a choice error, we retry the choice using the last request provided
-			// we've got a '|callback' updating our state regarding what Pokemon are trapped
-			// or disabled.
-			this.makeChoice(this.lastRequest!);
-		} else {
-			throw error;
-		}
+		// If we made an unavailable choice we will receive a followup request to
+		// allow us the opportunity to correct our decision.
+		if (error.message.startsWith('[Unavailable choice]')) return;
+		throw error;
 	}
 
 	receiveRequest(request: AnyObject) {
-		this.disabled = new Map();
-		this.trapped = new Set();
-		this.retry = false;
-
-		this.lastRequest = request;
-		this.makeChoice(request);
-	}
-
-	receiveCallback(callback: string[]) {
-		const [type, ...args] = callback;
-		if (type === 'cant') {
-			this.retry = true;
-			const [pokemon, _, move] = args;
-			const position = pokemon[2].indexOf(`abcdef`);
-			let moves = this.disabled.get(position);
-			if (!moves) {
-				moves = new Set();
-				this.disabled.set(position, moves);
-			}
-			moves.add(move);
-		} else if (type === 'trapped') {
-			this.retry = true;
-			const position = Number(args);
-			this.trapped.add(position);
-		}
-	}
-
-	makeChoice(request: AnyObject) {
 		if (request.wait) {
 			// wait request
 			// do nothing
@@ -87,6 +45,7 @@ export class RandomPlayerAI extends BattlePlayer {
 				if (!mustSwitch) return `pass`;
 
 				const canSwitch = [1, 2, 3, 4, 5, 6].filter(i => (
+					pokemon[i - 1] &&
 					// not active
 					i > request.forceSwitch.length &&
 					// not chosen for a simultaneous switch
@@ -96,7 +55,8 @@ export class RandomPlayerAI extends BattlePlayer {
 				));
 
 				if (!canSwitch.length) return `pass`;
-				const target = this.prng.sample(canSwitch);
+				const target = this.chooseSwitch(
+					canSwitch.map(slot => ({slot, pokemon: pokemon[slot - 1]})));
 				chosen.push(target);
 				return `switch ${target}`;
 			});
@@ -114,11 +74,9 @@ export class RandomPlayerAI extends BattlePlayer {
 				canUltraBurst = canUltraBurst && active.canUltraBurst;
 				canZMove = canZMove && !!active.canZMove;
 
-				const disabled = this.disabled.get(i);
 				let canMove = [1, 2, 3, 4].slice(0, active.moves.length).filter(j => (
 					// not disabled
-					!active.moves[j - 1].disabled &&
-					(!disabled || !disabled.has(toId(active.moves[j - 1].move)))
+					!active.moves[j - 1].disabled
 					// NOTE: we don't actually check for whether we have PP or not because the
 					// simulator will mark the move as disabled if there is zero PP and there are
 					// situations where we actually need to use a move with 0 PP (Gen 1 Wrap).
@@ -164,10 +122,11 @@ export class RandomPlayerAI extends BattlePlayer {
 						}
 					}
 					if (m.zMove) move += ` zmove`;
-					return move;
+					return {choice: move, move: m};
 				});
 
 				const canSwitch = [1, 2, 3, 4, 5, 6].filter(j => (
+					pokemon[j - 1] &&
 					// not active
 					!pokemon[j - 1].active &&
 					// not chosen for a simultaneous switch
@@ -175,15 +134,15 @@ export class RandomPlayerAI extends BattlePlayer {
 					// not fainted
 					!pokemon[j - 1].condition.endsWith(` fnt`)
 				));
-				const trapped = active.trapped || (this.trapped && this.trapped.has(i));
-				const switches = trapped ? [] : canSwitch;
+				const switches = active.trapped ? [] : canSwitch;
 
 				if (switches.length && (!moves.length || this.prng.next() > this.move)) {
-					const target = this.prng.sample(switches);
+					const target = this.chooseSwitch(
+						canSwitch.map(slot => ({slot, pokemon: pokemon[slot - 1]})));
 					chosen.push(target);
 					return `switch ${target}`;
 				} else if (moves.length) {
-					const move = this.prng.sample(moves);
+					const move = this.chooseMove(moves);
 					if (move.endsWith(` zmove`)) {
 						canZMove = false;
 						return move;
@@ -206,7 +165,19 @@ export class RandomPlayerAI extends BattlePlayer {
 			this.choose(choices.join(`, `));
 		} else {
 			// team preview?
-			this.choose(`default`);
+			this.choose(this.chooseTeamPreview(request.side.pokemon));
 		}
+	}
+
+	protected chooseTeamPreview(team: AnyObject[]): string {
+		return `default`;
+	}
+
+	protected chooseMove(moves: {choice: string, move: AnyObject}[]): string {
+		return this.prng.sample(moves).choice;
+	}
+
+	protected chooseSwitch(switches: {slot: number, pokemon: AnyObject}[]): number {
+		return this.prng.sample(switches).slot;
 	}
 }
