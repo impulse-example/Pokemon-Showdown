@@ -545,6 +545,7 @@ exports.grouplist = [
 		joinbattle: true,
 		nooverride: true,
 		editprivacy: true,
+		exportinputlog: true,
 	},
 	{
 		symbol: '*',

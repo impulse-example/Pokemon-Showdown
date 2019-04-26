@@ -157,7 +157,8 @@ function getExactUser(name) {
  * @param {{forPunishment?: boolean, includeTrusted?: boolean}} options
  */
 function findUsers(userids, ips, options = {}) {
-	let matches = /** @type {User[]} */ ([]);
+	/** @type {User[]} */
+	let matches = [];
 	if (options.forPunishment) ips = ips.filter(ip => !Punishments.sharedIps.has(ip));
 	for (const user of users.values()) {
 		if (!options.forPunishment && !user.named && !user.connected) continue;
@@ -434,6 +435,8 @@ class Connection {
 
 /** @typedef {[string, string, Connection]} ChatQueueEntry */
 
+const SETTINGS = ['isSysop', 'isStaff', 'blockChallenges', 'blockPMs', 'ignoreTickets', 'lastConnected', 'inviteOnlyNextBattle'];
+
 // User
 class User extends Chat.MessageContext {
 	/**
@@ -465,14 +468,14 @@ class User extends Chat.MessageContext {
 		//       the `ips` object, not just the latest IP.
 		/** @type {string} */
 		this.latestIp = connection.ip;
-		/** @type {?false | string} */
-		this.locked = false;
-		/** @type {?false | string} */
-		this.semilocked = false;
-		/** @type {?boolean} */
-		this.namelocked = false;
-		/** @type {?false | string} */
-		this.permalocked = false;
+		/** @type {string?} */
+		this.locked = null;
+		/** @type {string?} */
+		this.semilocked = null;
+		/** @type {string?} */
+		this.namelocked = null;
+		/** @type {string?} */
+		this.permalocked = null;
 		this.prevNames = Object.create(null);
 		this.inRooms = new Set();
 
@@ -987,13 +990,24 @@ class User extends Chat.MessageContext {
 		if (isForceRenamed) this.trackRename = oldname;
 		return true;
 	}
-	getUpdateuserText() {
+	/**
+	 * @param {string[]} updated the settings which have been updated or none for all settings.
+	 */
+	getUpdateuserText(...updated) {
 		const named = this.named ? 1 : 0;
-		const settings = {blockPMs: this.blockPMs, blockChallenges: this.blockChallenges};
-		return `|updateuser|${this.name}|${named}|${this.avatar}|${JSON.stringify(settings)}`;
+		const diff = {};
+		const settings = updated.length ? updated : SETTINGS;
+		for (const setting of settings) {
+			// @ts-ignore - dynamic lookup
+			diff[setting] = this[setting];
+		}
+		return `|updateuser|${this.name}|${named}|${this.avatar}|${JSON.stringify(diff)}`;
 	}
-	update() {
-		this.send(this.getUpdateuserText());
+	/**
+	 * @param {string[]} updated the settings which have been updated or none for all settings.
+	 */
+	update(...updated) {
+		this.send(this.getUpdateuserText(...updated));
 	}
 	/**
 	 * @param {User} oldUser
@@ -1004,8 +1018,8 @@ class User extends Chat.MessageContext {
 			Rooms(roomid).onLeave(oldUser);
 		}
 
-		if (this.locked === '#dnsbl' && !oldUser.locked) this.locked = false;
-		if (!this.locked && oldUser.locked === '#dnsbl') oldUser.locked = false;
+		if (this.locked === '#dnsbl' && !oldUser.locked) this.locked = null;
+		if (!this.locked && oldUser.locked === '#dnsbl') oldUser.locked = null;
 		if (oldUser.locked) this.locked = oldUser.locked;
 		if (oldUser.autoconfirmed) this.autoconfirmed = oldUser.autoconfirmed;
 
@@ -1046,7 +1060,7 @@ class User extends Chat.MessageContext {
 		this.latestIp = oldUser.latestIp;
 		this.latestHost = oldUser.latestHost;
 
-		oldUser.markInactive();
+		oldUser.markDisconnected();
 	}
 	/**
 	 * @param {Connection} connection
@@ -1126,12 +1140,12 @@ class User extends Chat.MessageContext {
 				Monitor.log(`[CrisisMonitor] Trusted user '${this.userid}' is ${this.permalocked !== this.userid ? `an alt of permalocked user '${this.permalocked}'` : `a permalocked user`}, and was automatically demoted from ${this.distrust()}.`);
 				return;
 			}
-			this.locked = false;
-			this.namelocked = false;
+			this.locked = null;
+			this.namelocked = null;
 		}
 		if (this.autoconfirmed && this.semilocked) {
 			if (this.semilocked.startsWith('#sharedip')) {
-				this.semilocked = false;
+				this.semilocked = null;
 			} else if (this.semilocked === '#dnsbl') {
 				this.popup(`You are locked because someone using your IP has spammed/hacked other websites. This usually means either you're using a proxy, you're in a country where other people commonly hack, or you have a virus on your computer that's spamming websites.`);
 				this.semilocked = '#dnsbl.';
@@ -1148,11 +1162,13 @@ class User extends Chat.MessageContext {
 	setGroup(group, forceTrusted = false) {
 		if (!group) throw new Error(`Falsy value passed to setGroup`);
 		this.group = group.charAt(0);
+		const wasStaff = this.isStaff;
 		this.isStaff = Config.groups[this.group] && (Config.groups[this.group].lock || Config.groups[this.group].root);
 		if (!this.isStaff) {
 			let staffRoom = Rooms('staff');
 			this.isStaff = (staffRoom && staffRoom.auth && staffRoom.auth[this.userid]);
 		}
+		if (wasStaff !== this.isStaff) this.update('isStaff');
 		Rooms.global.checkAutojoin(this);
 		if (this.registered) {
 			if (forceTrusted || this.group !== Config.groupsranking[0]) {
@@ -1186,7 +1202,7 @@ class User extends Chat.MessageContext {
 		this.setGroup(Config.groupsranking[0]);
 		return removed;
 	}
-	markInactive() {
+	markDisconnected() {
 		this.connected = false;
 		this.lastConnected = Date.now();
 		if (!this.registered) {
@@ -1199,6 +1215,7 @@ class User extends Chat.MessageContext {
 			// We're not resetting .trusted/.autoconfirmed so those accounts
 			// can still be locked after logout.
 		}
+		// NOTE: can't do a this.update(...) at this point because we're no longer connected.
 	}
 	/**
 	 * @param {Connection} connection
@@ -1208,7 +1225,7 @@ class User extends Chat.MessageContext {
 			if (connected === connection) {
 				// console.log('DISCONNECT: ' + this.userid);
 				if (this.connections.length <= 1) {
-					this.markInactive();
+					this.markDisconnected();
 				}
 				for (const roomid of connection.inRooms) {
 					this.leaveRoom(Rooms(roomid), connection, true);
@@ -1278,7 +1295,7 @@ class User extends Chat.MessageContext {
 		// Disconnects a user from the server
 		this.clearChatQueue();
 		let connection = null;
-		this.markInactive();
+		this.markDisconnected();
 		for (let i = this.connections.length - 1; i >= 0; i--) {
 			// console.log('DESTROY: ' + this.userid);
 			connection = this.connections[i];

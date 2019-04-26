@@ -185,6 +185,7 @@ export class Pokemon {
 
 	isActive: boolean;
 	activeTurns: number;
+	truantTurn: boolean;
 	/** Have this pokemon's Start events run yet? */
 	isStarted: boolean;
 	duringMove: boolean;
@@ -353,6 +354,7 @@ export class Pokemon {
 
 		this.isActive = false;
 		this.activeTurns = 0;
+		this.truantTurn = false;
 		this.isStarted = false;
 		this.duringMove = false;
 
@@ -382,7 +384,7 @@ export class Pokemon {
 		this.m = {};
 	}
 
-	get moves() {
+	get moves(): readonly string[] {
 		return this.moveSlots.map(moveSlot => moveSlot.id);
 	}
 
@@ -401,13 +403,15 @@ export class Pokemon {
 		return this.isActive ? this.getSlot() + fullname.slice(2) : fullname;
 	}
 
-	getDetails = (side: 0 | 1 | boolean) => {
+	getDetails = () => {
+		const health = this.getHealth();
+		let details = this.details;
 		if (this.illusion) {
 			const illusionDetails = this.illusion.template.species + (this.level === 100 ? '' : ', L' + this.level) +
 				(this.illusion.gender === '' ? '' : ', ' + this.illusion.gender) + (this.illusion.set.shiny ? ', shiny' : '');
-			return illusionDetails + '|' + this.getHealth(side);
+			details = illusionDetails;
 		}
-		return this.details + '|' + this.getHealth(side);
+		return {side: health.side, secret: `${details}|${health.secret}`, shared: `${details}|${health.shared}`};
 	};
 
 	updateSpeed() {
@@ -923,7 +927,6 @@ export class Pokemon {
 				used: false,
 				virtual: true,
 			});
-			this.moves.push(toId(moveName));
 		}
 		let boostName: BoostName;
 		for (boostName in pokemon.boosts) {
@@ -1541,34 +1544,35 @@ export class Pokemon {
 		}
 	}
 
-	getHealth = (side: 0 | 1 | boolean) => {
-		if (!this.hp) return '0 fnt';
-		let hpstring;
-		// side === true in replays
-		if (side === true || side === this.side.n % 2) {
-			hpstring = `${this.hp}/${this.maxhp}`;
+	getHealth = () => {
+		if (!this.hp) return {side: this.side.id, secret: '0 fnt', shared: '0 fnt'};
+		let secret = `${this.hp}/${this.maxhp}`;
+		let shared;
+		const ratio = this.hp / this.maxhp;
+		if (this.battle.reportExactHP) {
+			shared = secret;
+		} else if (this.battle.reportPercentages) {
+			// HP Percentage Mod mechanics
+			let percentage = Math.ceil(ratio * 100);
+			if ((percentage === 100) && (ratio < 1.0)) {
+				percentage = 99;
+			}
+			shared = `${percentage}/100`;
 		} else {
-			const ratio = this.hp / this.maxhp;
-			if (this.battle.reportPercentages) {
-				// HP Percentage Mod mechanics
-				let percentage = Math.ceil(ratio * 100);
-				if ((percentage === 100) && (ratio < 1.0)) {
-					percentage = 99;
-				}
-				hpstring = `${percentage}/100`;
-			} else {
-				// In-game accurate pixel health mechanics
-				const pixels = Math.floor(ratio * 48) || 1;
-				hpstring = `${pixels}/48`;
-				if ((pixels === 9) && (ratio > 0.2)) {
-					hpstring += 'y'; // force yellow HP bar
-				} else if ((pixels === 24) && (ratio > 0.5)) {
-					hpstring += 'g'; // force green HP bar
-				}
+			// In-game accurate pixel health mechanics
+			const pixels = Math.floor(ratio * 48) || 1;
+			shared = `${pixels}/48`;
+			if ((pixels === 9) && (ratio > 0.2)) {
+				shared += 'y'; // force yellow HP bar
+			} else if ((pixels === 24) && (ratio > 0.5)) {
+				shared += 'g'; // force green HP bar
 			}
 		}
-		if (this.status) hpstring += ' ' + this.status;
-		return hpstring;
+		if (this.status) {
+			secret += ` ${this.status}`;
+			shared += ` ${this.status}`;
+		}
+		return {side: this.side.id, secret, shared};
 	};
 
 	/**
